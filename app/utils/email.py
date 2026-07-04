@@ -2,6 +2,13 @@
 
 Reads SMTP credentials from the new `Settings` (instead of the legacy
 `os.getenv` cluster), and exposes async `send_*` methods.
+
+The singleton is constructed lazily on first access. Constructing it at
+import time would force `Settings()` validation before test code (or any
+importer) gets a chance to set env vars, and `Settings` raises on a
+missing `GROQ_API_KEY` when `LLM_PROVIDER_ROUTER=groq` (the default) —
+which makes `from app.routes.auth import …` fail in CI even for tests
+that don't touch email.
 """
 
 from __future__ import annotations
@@ -9,12 +16,42 @@ from __future__ import annotations
 import logging
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from typing import Optional
 
 import aiosmtplib
 
 from app.config.settings import Settings, get_settings
 
 logger = logging.getLogger(__name__)
+
+_service: Optional["EmailService"] = None
+
+
+def _get_service() -> "EmailService":
+    global _service
+    if _service is None:
+        _service = EmailService()
+    return _service
+
+
+class _LazyEmailServiceProxy:
+    """Proxy that constructs the real `EmailService` on first attribute
+    access. Lets callers keep writing `email_service.send_*` while
+    deferring `Settings()` until those code paths actually run.
+
+    The cache is per-process. Tests that mutate env should call
+    `reset_email_service_cache()` (or `reset_settings_cache()` plus
+    this one) to force a fresh construction.
+    """
+
+    def __getattr__(self, name: str):
+        return getattr(_get_service(), name)
+
+
+def reset_email_service_cache() -> None:
+    """Used by tests to drop the cached `EmailService` after env changes."""
+    global _service
+    _service = None
 
 
 class EmailService:
@@ -100,4 +137,4 @@ class EmailService:
             return False
 
 
-email_service = EmailService()
+email_service = _LazyEmailServiceProxy()

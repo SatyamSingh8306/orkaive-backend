@@ -17,9 +17,13 @@ ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-# Set SECRET_KEY BEFORE any app module imports Settings() so the
-# lru_cache is populated with a known value.
+# Set the env BEFORE any app module imports Settings() so the
+# lru_cache is populated with a known value. SECRET_KEY is required
+# (no default). GROQ_API_KEY is required when LLM_PROVIDER_ROUTER=groq
+# (the default) — we set a dummy so tests that don't care about LLMs
+# still see a valid Settings instance.
 os.environ.setdefault("SECRET_KEY", "x" * 32)
+os.environ.setdefault("GROQ_API_KEY", "ci-dummy-groq-key")
 
 _ORKAIVE_ENV_KEYS = {
     "GROQ_API_KEY", "OPENROUTER_API_KEY", "OPENAI_API_KEY",
@@ -37,12 +41,16 @@ def _clean_settings_cache():
     later test would see the cached value.
     """
     from app.config.settings import reset_settings_cache, get_settings
+    from app.utils.email import reset_email_service_cache
     reset_settings_cache()
+    reset_email_service_cache()
     os.environ["SECRET_KEY"] = "x" * 32
+    os.environ.setdefault("GROQ_API_KEY", "ci-dummy-groq-key")
     # Force re-construction now so `_create_token` etc. see the new key.
     get_settings()
     yield
     reset_settings_cache()
+    reset_email_service_cache()
 
 
 @pytest.fixture

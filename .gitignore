@@ -1,0 +1,10 @@
+ai-chatbot-project
+project
+.env
+txt
+venv
+
+agent.md
+
+
+__pycache__/

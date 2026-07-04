@@ -1,0 +1,54 @@
+name: Backend CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  backend:
+    name: Backend (Python)
+    runs-on: ubuntu-latest
+
+    services:
+      mongodb:
+        image: mongo:7
+        ports:
+          - 27017:27017
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+
+      - name: Lint
+        run: |
+          # ruff is the lightest Python linter that catches real issues.
+          pip install ruff
+          ruff check app/ tests/
+
+      - name: Test
+        env:
+          SECRET_KEY: ci-secret-key-not-used-for-real-auth-1234567890
+          MONGODB_URL: mongodb://localhost:27017
+          MONGODB_DB: orkaive_test
+          REDIS_HOST: localhost
+          REDIS_PORT: "6379"
+        run: |
+          pytest tests/ -v --cov=app.tools.http_executor --cov=app.schemas.tool --cov=app.services.secret_service --cov=app.services.tool_service --cov=app.orchestrator.router --cov-report=term --cov-fail-under=50

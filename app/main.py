@@ -147,6 +147,7 @@ from app.routes import (  # noqa: E402  (import after app created)
     chats as chats_module,
     conflicts as conflicts_module,
     dashboard as dashboard_module,
+    evals as evals_module,
     dashboard_websocket as dashboard_ws_module,
     prompts as prompts_module,
     tools as tools_module,
@@ -162,6 +163,8 @@ app.include_router(workflows_module.router, prefix="/api")
 app.include_router(tools_module.router, prefix="/api")
 app.include_router(conflicts_module.router, prefix="/api")
 app.include_router(dashboard_module.router, prefix="/api")
+# Workflow evaluation (LLM-judge quality + run metrics).
+app.include_router(evals_module.router, prefix="/api")
 # Per-workflow team chat (the conflict room). Mounted at /api so the
 # frontend's `api.get('/workflow-chats')` resolves to /api/workflow-chats.
 app.include_router(workflow_chat_module.router, prefix="/api")

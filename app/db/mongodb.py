@@ -83,3 +83,6 @@ async def ensure_indexes() -> None:
         [("name", 1), ("isActive", 1)], partialFilterExpression={"isActive": True}
     )
     await db.prompt_templates.create_index("name", unique=True)
+    # Evaluation runs: list-by-workflow (newest first) + status filter.
+    await db.eval_runs.create_index([("workflowId", 1), ("createdAt", -1)])
+    await db.eval_runs.create_index("status")
